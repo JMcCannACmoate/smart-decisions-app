@@ -1,0 +1,67 @@
+name: Database Migrations CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'migrations/**'
+      - 'shared/schema.ts'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'migrations/**'
+      - 'shared/schema.ts'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Verify migrations
+        run: ./scripts/verify-migrations.sh
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+          
+  deploy:
+    needs: verify
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run migrations
+        run: npm run db:push
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

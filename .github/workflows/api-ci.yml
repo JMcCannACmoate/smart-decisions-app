@@ -1,0 +1,43 @@
+name: API CI/CD
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'server/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'server/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run tests
+        run: npm run test:api
+        
+      - name: Check API documentation
+        run: npm run docs:validate
+        
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Deploy API
+        run: ./scripts/deploy-api.sh
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
